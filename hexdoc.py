@@ -77,7 +77,8 @@ class HexDrawer:
                 for i in range(self.bytesPerRow)]
 
 
-    def draw(self, imgDraw, position, buffer, count, address=0):
+    def draw(self, imgDraw, position, buffer, address=0):
+        count = len(buffer)
         firstColumn = self.getFirstColumn(address)
         if self.showAddress:
             xOffset = self.getAddressWidth(count, address) + 10
@@ -97,10 +98,11 @@ class HexDrawer:
         addressDigits = self.getAddressDigits(count, address)
 
         for row in range(self.fadeInRows):
-            if (address + i) % 0x80 == 0:
-                self.drawDigits(imgDraw, (position[0], y), self.color, address + i, addressDigits)
             alpha = (row + 1) * 255 // (self.fadeInRows + 1)
             color = *self.color[:-1], alpha
+            if (address + i) % 0x80 == 0:
+                self.drawDigits(imgDraw, (position[0], y), color,
+                                address + i, addressDigits)
             for col in range(col, self.bytesPerRow):
                 assert(0 <= buffer[i] <= 255)
                 self.drawDigits(imgDraw, (x, y), color, buffer[i], 2)
@@ -126,10 +128,10 @@ class HexDrawer:
             col = 0
 
         for row in range(rows - self.fadeOutRows, rows):
-            if (address + i) % 0x80 == 0:
-                self.drawDigits(imgDraw, (position[0], y), self.color, address + i, addressDigits)
             alpha = (rows - row) * 255 // (self.fadeOutRows + 1)
             color = *self.color[:-1], alpha
+            if (address + i) % 0x80 == 0:
+                self.drawDigits(imgDraw, (position[0], y), color, address + i, addressDigits)
             maxCol = min(self.bytesPerRow, col + count - i)
             for col in range(0, maxCol):
                 assert(0 <= buffer[i] <= 255)
@@ -200,7 +202,8 @@ def main():
     argVars = vars(args)
     dataFile = argVars["data file"]
     path = os.path.dirname(sys.argv[0])
-    fontFile = args.font if args.font else "xkcd-script.ttf"
+    scriptDir = os.path.dirname(os.path.realpath(__file__))
+    fontFile = args.font if args.font else os.path.join(scriptDir, "xkcd-script.ttf")
     font = ImageFont.truetype(os.path.join(path, fontFile), args.fontsize)
     hexDrawer = HexDrawer(font)
     hexDrawer.color = decodeColor(args.color)
@@ -209,17 +212,17 @@ def main():
     hexDrawer.fadeOutRows = args.fadeout
     hexDrawer.groupSize = 4
     pos, buffer = readBytes(dataFile, args.address, args.number)
-    print(hexDrawer.getSize(args.number, pos))
+    count = len(buffer)
     width, height = args.size
     if width <= 0 or height <= 0:
-        autoSize = hexDrawer.getSize(args.number, pos)
+        autoSize = hexDrawer.getSize(count, pos)
         if width <= 0:
             width = autoSize[0] + 4
         if height <= 0:
             height = autoSize[1] + 4
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    hexDrawer.draw(draw, (2, 2), buffer, args.number, pos)
+    hexDrawer.draw(draw, (2, 2), buffer, pos)
 
     del draw
     imageFile = argVars["image file"]
